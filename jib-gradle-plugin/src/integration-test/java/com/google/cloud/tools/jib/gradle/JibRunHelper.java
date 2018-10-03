@@ -32,11 +32,20 @@ import org.junit.Assert;
 /** Helper class to run integration tests. */
 public class JibRunHelper {
 
+  static String buildAndRun(TestProject testProject, String imageReference)
+      throws IOException, InterruptedException {
+    return buildAndRun(testProject, imageReference, "build.gradle");
+  }
+
   static String buildAndRun(
-      TestProject testProject, String imageReference, String... extraRunArguments)
+      TestProject testProject,
+      String imageReference,
+      String gradleBuildFile,
+      String... extraRunArguments)
       throws IOException, InterruptedException {
     BuildResult buildResult =
-        testProject.build("clean", "jib", "-D_TARGET_IMAGE=" + imageReference);
+        testProject.build(
+            "clean", "jib", "-D_TARGET_IMAGE=" + imageReference, "-b=" + gradleBuildFile);
     assertBuildSuccess(buildResult, "jib", "Built and pushed image as ");
     Assert.assertThat(buildResult.getOutput(), CoreMatchers.containsString(imageReference));
 

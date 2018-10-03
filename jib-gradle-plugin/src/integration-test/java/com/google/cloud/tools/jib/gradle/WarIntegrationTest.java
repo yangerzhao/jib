@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -32,7 +33,10 @@ import org.junit.Test;
 public class WarIntegrationTest {
 
   @ClassRule
-  public static final TestProject jettyServlet25Project = new TestProject("war_jetty_servlet25");
+  public static final TestProject jettyServlet25Project = new TestProject("war_servlet25");
+
+  @ClassRule
+  public static final TestProject tomcatServlet25Project = new TestProject("war_servlet25");
 
   private static String getContent(URL url) throws InterruptedException {
     for (int i = 0; i < 40; i++) {
@@ -51,6 +55,15 @@ public class WarIntegrationTest {
     return null;
   }
 
+  private String containerName;
+
+  @After
+  public void tearDown() throws IOException, InterruptedException {
+    if (containerName != null) {
+      new Command("docker", "stop", containerName.trim()).run();
+    }
+  }
+
   @Test
   public void testBuild_jettyServlet25Project() throws IOException, InterruptedException {
     String targetImage =
@@ -59,13 +72,27 @@ public class WarIntegrationTest {
             + "/war_jetty_servlet25:gradle"
             + System.nanoTime();
 
-    String containerName =
-        JibRunHelper.buildAndRun(jettyServlet25Project, targetImage, "--detach", "-p8080:8080");
-    try {
-      String content = getContent(new URL("http://localhost:8080/hello"));
-      Assert.assertEquals("Hello world", content);
-    } finally {
-      new Command("docker", "stop", containerName.trim()).run();
-    }
+    buildAndRunDetached(jettyServlet25Project, targetImage, "build.gradle");
+    String content = getContent(new URL("http://localhost:8080/hello"));
+    Assert.assertEquals("Hello world", content);
+  }
+
+  @Test
+  public void testBuild_tomcatServlet25Project() throws IOException, InterruptedException {
+    String targetImage =
+        "gcr.io/"
+            + IntegrationTestingConfiguration.getGCPProject()
+            + "/war_tomcat_servlet25:gradle"
+            + System.nanoTime();
+
+    buildAndRunDetached(tomcatServlet25Project, targetImage, "build-tomcat.gradle");
+    String content = getContent(new URL("http://localhost:8080/hello"));
+    Assert.assertEquals("Hello world", content);
+  }
+
+  private void buildAndRunDetached(TestProject project, String targetImage, String gradleBuildFile)
+      throws IOException, InterruptedException {
+    containerName =
+        JibRunHelper.buildAndRun(project, targetImage, gradleBuildFile, "--detach", "-p8080:8080");
   }
 }
